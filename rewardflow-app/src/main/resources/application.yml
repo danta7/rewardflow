@@ -1,0 +1,82 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: rewardflow-app
+  profiles:
+    active: local
+  config:
+    # Nacos config is optional in step 1 (we'll start using it in step 3: rule center)
+    import: optional:nacos:rewardflow.yaml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      # Jaeger all-in-one exposes OTLP/HTTP at http://localhost:4318/v1/traces
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  level:
+    root: INFO
+
+---
+# Local development profile: dependencies from docker-compose via localhost port mapping
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:mysql://localhost:3306/rewardflow?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: rewardflow
+    password: rewardflow123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+    mongodb:
+      uri: mongodb://localhost:27017/rewardflow
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+  cloud:
+    nacos:
+      config:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        file-extension: yaml
+        enabled: false
+      discovery:
+        server-addr: ${NACOS_ADDR:localhost:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        enabled: false
+
+---
+# Enable Nacos (config + discovery) when you are ready
+spring:
+  config:
+    activate:
+      on-profile: nacos
+  cloud:
+    nacos:
+      config:
+        enabled: true
+      discovery:
+        enabled: true

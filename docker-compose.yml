@@ -1,0 +1,113 @@
+version: "3.8"
+
+name: rewardflow
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: rewardflow-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      TZ: UTC
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/0-init.sql:ro
+      - mysql_data:/var/lib/mysql
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.2
+    container_name: rewardflow-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  mongodb:
+    image: mongo:6
+    container_name: rewardflow-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rewardflow-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: rewardflow-nacos
+    environment:
+      MODE: standalone
+      TZ: UTC
+      # For local dev we keep Nacos in embedded mode.
+      # If you want MySQL-backed Nacos later, we can switch to mysql mode with nacos schema.
+    ports:
+      - "8848:8848"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8848/nacos/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.56
+    container_name: rewardflow-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "14268:14268" # Jaeger collector HTTP
+      - "9411:9411"   # Zipkin compatible
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: rewardflow-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - jaeger
+
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: rewardflow-grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  mysql_data:
+  mongo_data:

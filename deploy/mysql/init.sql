@@ -1,0 +1,5 @@
+CREATE DATABASE IF NOT EXISTS rewardflow DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'rewardflow'@'%' IDENTIFIED BY 'rewardflow123';
+GRANT ALL PRIVILEGES ON rewardflow.* TO 'rewardflow'@'%';
+FLUSH PRIVILEGES;
