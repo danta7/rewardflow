@@ -44,6 +44,9 @@ spring:
     username: rewardflow
     password: rewardflow123
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
   data:
     redis:
       host: localhost
@@ -67,6 +70,17 @@ spring:
         server-addr: ${NACOS_ADDR:localhost:8848}
         namespace: ${NACOS_NAMESPACE:}
         enabled: false
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+rewardflow:
+  timezone: UTC
+  risk:
+    max-duration-per-report: 60
+    max-clock-skew-ms: 300000
 
 ---
 # Enable Nacos (config + discovery) when you are ready
