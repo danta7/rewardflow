@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.rewardflow.infra.mysql.mapper.UserPlayDailyMapper">
+
+  <resultMap id="UserPlayDailyMap" type="com.rewardflow.infra.mysql.entity.UserPlayDailyDO">
+    <id column="id" property="id"/>
+    <result column="user_id" property="userId"/>
+    <result column="biz_scene" property="bizScene"/>
+    <result column="biz_date" property="bizDate"/>
+    <result column="total_duration" property="totalDuration"/>
+    <result column="last_sync_time" property="lastSyncTime"/>
+    <result column="version" property="version"/>
+    <result column="create_time" property="createTime"/>
+    <result column="update_time" property="updateTime"/>
+  </resultMap>
+
+  <select id="selectOne" resultMap="UserPlayDailyMap">
+    SELECT id, user_id, biz_scene, biz_date, total_duration, last_sync_time, version, create_time, update_time
+    FROM user_play_daily
+    WHERE user_id = #{userId}
+      AND biz_scene = #{bizScene}
+      AND biz_date = #{bizDate}
+    LIMIT 1
+  </select>
+
+  <select id="selectOneForUpdate" resultMap="UserPlayDailyMap">
+    SELECT id, user_id, biz_scene, biz_date, total_duration, last_sync_time, version, create_time, update_time
+    FROM user_play_daily
+    WHERE user_id = #{userId}
+      AND biz_scene = #{bizScene}
+      AND biz_date = #{bizDate}
+    LIMIT 1
+    FOR UPDATE
+  </select>
+
+  <insert id="insert" parameterType="com.rewardflow.infra.mysql.entity.UserPlayDailyDO" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO user_play_daily
+      (user_id, biz_scene, biz_date, total_duration, last_sync_time, version)
+    VALUES
+      (#{userId}, #{bizScene}, #{bizDate}, #{totalDuration}, #{lastSyncTime}, #{version})
+  </insert>
+
+  <update id="updateTotals">
+    UPDATE user_play_daily
+    SET total_duration = #{totalDuration},
+        last_sync_time = #{lastSyncTime},
+        version = #{version} + 1
+    WHERE id = #{id}
+  </update>
+
+</mapper>

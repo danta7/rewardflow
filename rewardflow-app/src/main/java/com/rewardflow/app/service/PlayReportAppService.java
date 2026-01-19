@@ -5,7 +5,9 @@ import com.rewardflow.api.dto.PlayReportResponse;
 import com.rewardflow.app.config.RewardFlowProperties;
 import com.rewardflow.app.exception.BizException;
 import com.rewardflow.infra.mysql.entity.PlayDurationReportDO;
+import com.rewardflow.infra.mysql.entity.UserPlayDailyDO;
 import com.rewardflow.infra.mysql.mapper.PlayDurationReportMapper;
+import com.rewardflow.infra.mysql.mapper.UserPlayDailyMapper;
 import io.micrometer.tracing.Tracer;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -19,13 +21,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class PlayReportAppService {
 
   private final PlayDurationReportMapper reportMapper;
+  private final UserPlayDailyMapper dailyMapper;
+  private final PlayDailyAggService aggService;
   private final RewardFlowProperties props;
   private final Tracer tracer;
 
   public PlayReportAppService(PlayDurationReportMapper reportMapper,
+                              UserPlayDailyMapper dailyMapper,
+                              PlayDailyAggService aggService,
                               RewardFlowProperties props,
                               Tracer tracer) {
     this.reportMapper = reportMapper;
+    this.dailyMapper = dailyMapper;
+    this.aggService = aggService;
     this.props = props;
     this.tracer = tracer;
   }
@@ -51,6 +59,11 @@ public class PlayReportAppService {
     ZoneId zoneId = ZoneId.of(props.getTimezone());
     LocalDate bizDate = LocalDate.now(zoneId);
 
+    PlayReportResponse resp = new PlayReportResponse();
+    resp.setAccepted(true);
+    resp.setBizDate(bizDate.toString());
+    resp.setTraceId(currentTraceId());
+
     PlayDurationReportDO record = new PlayDurationReportDO();
     record.setUserId(req.getUserId());
     record.setSoundId(req.getSoundId());
@@ -59,20 +72,27 @@ public class PlayReportAppService {
     record.setSyncTime(req.getSyncTime());
     record.setBizDate(bizDate);
 
-    PlayReportResponse resp = new PlayReportResponse();
-    resp.setAccepted(true);
-    resp.setBizDate(bizDate.toString());
-    resp.setTraceId(currentTraceId());
-
     try {
       reportMapper.insert(record);
       resp.setDuplicate(false);
       resp.setReportId(record.getId());
+
+      // 按天聚合播放时长
+      PlayDailyAggService.AggOutcome out = aggService.aggregate(req.getUserId(), req.getScene(), bizDate, req.getSyncTime());
+      resp.setTotalDuration(out.totalDuration);
+      resp.setDeltaDuration(out.deltaDuration);
       return resp;
+
     } catch (DuplicateKeyException dup) {
-      // Weak network retry → duplicate report, idempotent ok
+      // 弱网重试：幂等
       resp.setDuplicate(true);
       resp.setReportId(null);
+      // 最好effort返回当前的 totalDuration 方便 Debug
+      UserPlayDailyDO daily = dailyMapper.selectOne(req.getUserId(), req.getScene(), bizDate);
+      if (daily != null) {
+        resp.setTotalDuration(daily.getTotalDuration());
+        resp.setDeltaDuration(0);
+      }
       return resp;
     }
   }

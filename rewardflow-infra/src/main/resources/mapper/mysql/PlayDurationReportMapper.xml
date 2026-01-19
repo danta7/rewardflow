@@ -24,4 +24,20 @@
       (#{userId}, #{soundId}, #{bizScene}, #{duration}, #{syncTime}, #{bizDate})
   </insert>
 
+  <resultMap id="PlayReportAggResultMap" type="com.rewardflow.infra.mysql.entity.PlayReportAggResult">
+    <result column="delta_duration" property="deltaDuration"/>
+    <result column="max_sync_time" property="maxSyncTime"/>
+  </resultMap>
+
+  <select id="selectAggSince" resultMap="PlayReportAggResultMap">
+    SELECT
+      COALESCE(SUM(duration), 0) AS delta_duration,
+      MAX(sync_time) AS max_sync_time
+    FROM play_duration_report
+    WHERE user_id = #{userId}
+      AND biz_scene = #{bizScene}
+      AND biz_date = #{bizDate}
+      AND sync_time &gt; #{lastSyncTime}
+  </select>
+
 </mapper>

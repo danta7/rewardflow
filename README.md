@@ -33,7 +33,7 @@ mvn -f rewardflow-app/pom.xml spring-boot:run -Dspring-boot.run.profiles=local
 Alternative (fast path after the first successful build):
 
 ```bash
-mvn -q -pl rewardflow-app -am spring-boot:run -Dspring-boot.run.profiles=local
+mvn -q -pl :rewardflow-app -am spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 ### 3) Quick smoke tests
@@ -42,10 +42,13 @@ mvn -q -pl rewardflow-app -am spring-boot:run -Dspring-boot.run.profiles=local
 curl -s http://localhost:8080/actuator/health | jq
 curl -s http://localhost:8080/api/v1/ping | jq
 
-# Step2: report play duration (unique key: userId+soundId+syncTime)
+# Report play duration (idempotent via uk_user_sound_synctime)
 curl -s -X POST http://localhost:8080/api/v1/play/report \
   -H 'Content-Type: application/json' \
   -d '{"userId":"u1","soundId":"s1","duration":30,"syncTime":'"$(date +%s000)"',"scene":"audio_play"}' | jq
+
+# Debug: query daily aggregation (user_play_daily)
+curl -s "http://localhost:8080/api/v1/play/daily?userId=u1&scene=audio_play" | jq
 ```
 
 ### 4) Stop
@@ -55,8 +58,9 @@ docker compose down -v
 ```
 
 ## What we build next
-- Step 2: Flyway schema + MyBatis repositories + basic `POST /api/v1/play/report` writes `play_duration_report`
-- Step 3: Nacos rule center + rule caching + JEXL gray routing
-- Step 4: stage calculation + reward_flow + outbox
-- Step 5: MQ publish + retry scanner
-- Step 6: tracing/metrics dashboards + JMeter pressure test
+- Step 2: Flyway schema + MyBatis repositories + `POST /api/v1/play/report` writes `play_duration_report`
+- Step 3: Daily aggregation (scheme B) + `user_play_daily` upsert + `GET /api/v1/play/daily`
+- Step 4: Rule center (Nacos) + rule caching + JEXL gray routing
+- Step 5: Stage calculation + `reward_flow` + outbox
+- Step 6: MQ publish + retry scanner
+- Step 7: dashboards (trace/metrics) + JMeter pressure test
