@@ -49,6 +49,17 @@ curl -s -X POST http://localhost:8080/api/v1/play/report \
 
 # Debug: query daily aggregation (user_play_daily)
 curl -s "http://localhost:8080/api/v1/play/daily?userId=u1&scene=audio_play" | jq
+
+# Step4: Rule center + gray routing (optional)
+# 1) Publish rule json into Nacos (or create it from Nacos UI)
+bash deploy/nacos/publish_rules.sh
+
+# 2) Inspect loaded config + selection result
+curl -s "http://localhost:8080/api/v1/rules/config" | jq
+curl -s "http://localhost:8080/api/v1/rules/select?scene=audio_play&userId=u09" | jq
+
+# 3) When total duration reaches a threshold, response returns planned award stages
+# e.g. totalDuration >=160 will have awardPlans with stage=1
 ```
 
 ### 4) Stop

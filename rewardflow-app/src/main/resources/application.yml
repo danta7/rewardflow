@@ -81,6 +81,17 @@ rewardflow:
   risk:
     max-duration-per-report: 60
     max-clock-skew-ms: 300000
+  rule-center:
+    enabled: true
+    server-addr: ${NACOS_ADDR:localhost:8848}
+    username: ${NACOS_USERNAME:}
+    password: ${NACOS_PASSWORD:}
+    data-id: rewardflow-award-rules.json
+    group: ${NACOS_GROUP:DEFAULT_GROUP}
+    timeout-ms: 3000
+    fallback-resource: classpath:rules/default-award-rules.json
+  award:
+    prize-code: COIN
 
 ---
 # Enable Nacos (config + discovery) when you are ready

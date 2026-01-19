@@ -24,17 +24,20 @@ public class PlayReportAppService {
   private final UserPlayDailyMapper dailyMapper;
   private final PlayDailyAggService aggService;
   private final RewardFlowProperties props;
+  private final AwardPreviewService awardPreviewService;
   private final Tracer tracer;
 
   public PlayReportAppService(PlayDurationReportMapper reportMapper,
                               UserPlayDailyMapper dailyMapper,
                               PlayDailyAggService aggService,
                               RewardFlowProperties props,
+                              AwardPreviewService awardPreviewService,
                               Tracer tracer) {
     this.reportMapper = reportMapper;
     this.dailyMapper = dailyMapper;
     this.aggService = aggService;
     this.props = props;
+    this.awardPreviewService = awardPreviewService;
     this.tracer = tracer;
   }
 
@@ -81,6 +84,12 @@ public class PlayReportAppService {
       PlayDailyAggService.AggOutcome out = aggService.aggregate(req.getUserId(), req.getScene(), bizDate, req.getSyncTime());
       resp.setTotalDuration(out.totalDuration);
       resp.setDeltaDuration(out.deltaDuration);
+
+      // 选择规则 + 预览奖励计划
+      AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, out.totalDuration, resp.getTraceId());
+      resp.setHitRuleVersion(preview.getHitRuleVersion());
+      resp.setGrayHit(preview.isGrayHit());
+      resp.setAwardPlans(preview.getItems());
       return resp;
 
     } catch (DuplicateKeyException dup) {
@@ -92,6 +101,11 @@ public class PlayReportAppService {
       if (daily != null) {
         resp.setTotalDuration(daily.getTotalDuration());
         resp.setDeltaDuration(0);
+        // best effort
+        AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(), resp.getTraceId());
+        resp.setHitRuleVersion(preview.getHitRuleVersion());
+        resp.setGrayHit(preview.isGrayHit());
+        resp.setAwardPlans(preview.getItems());
       }
       return resp;
     }

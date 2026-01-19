@@ -67,6 +67,8 @@ services:
       # If you want MySQL-backed Nacos later, we can switch to mysql mode with nacos schema.
     ports:
       - "8848:8848"
+      - "9848:9848"
+      - "9849:9849"
     depends_on:
       mysql:
         condition: service_healthy

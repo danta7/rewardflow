@@ -17,6 +17,55 @@ public class PlayReportResponse {
   // 本次请求中聚合出来的新增时长（单位：秒）如果重复上报或上报乱序，可能为0
   private Integer deltaDuration;
 
+  /** 命中的规则版本 */
+  private String hitRuleVersion;
+
+  /** 是否命中灰度规则 (true/false). */
+  private Boolean grayHit;
+
+  /** 奖励计划列表（仅预览，暂无下游） */
+  private java.util.List<RewardPlanItem> awardPlans;  // 计划发表列表
+
+  /** 每个阶段的奖励计划项 */
+  public static class RewardPlanItem {
+    private Integer stage;
+    private Integer threshold;
+    private Integer amount;
+    private String outBizNo;
+
+    public Integer getStage() {
+      return stage;
+    }
+
+    public void setStage(Integer stage) {
+      this.stage = stage;
+    }
+
+    public Integer getThreshold() {
+      return threshold;
+    }
+
+    public void setThreshold(Integer threshold) {
+      this.threshold = threshold;
+    }
+
+    public Integer getAmount() {
+      return amount;
+    }
+
+    public void setAmount(Integer amount) {
+      this.amount = amount;
+    }
+
+    public String getOutBizNo() {
+      return outBizNo;
+    }
+
+    public void setOutBizNo(String outBizNo) {
+      this.outBizNo = outBizNo;
+    }
+  }
+
   public boolean isAccepted() {
     return accepted;
   }
@@ -71,5 +120,29 @@ public class PlayReportResponse {
 
   public void setDeltaDuration(Integer deltaDuration) {
     this.deltaDuration = deltaDuration;
+  }
+
+  public String getHitRuleVersion() {
+    return hitRuleVersion;
+  }
+
+  public void setHitRuleVersion(String hitRuleVersion) {
+    this.hitRuleVersion = hitRuleVersion;
+  }
+
+  public Boolean getGrayHit() {
+    return grayHit;
+  }
+
+  public void setGrayHit(Boolean grayHit) {
+    this.grayHit = grayHit;
+  }
+
+  public java.util.List<RewardPlanItem> getAwardPlans() {
+    return awardPlans;
+  }
+
+  public void setAwardPlans(java.util.List<RewardPlanItem> awardPlans) {
+    this.awardPlans = awardPlans;
   }
 }
