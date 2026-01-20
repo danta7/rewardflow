@@ -14,4 +14,11 @@
       AND prize_code = #{prizeCode}
   </select>
 
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO reward_flow
+      (user_id, biz_scene, prize_code, prize_date, prize_stage, prize_amount, out_biz_no, rule_version, trace_id)
+    VALUES
+      (#{userId}, #{bizScene}, #{prizeCode}, #{prizeDate}, #{prizeStage}, #{prizeAmount}, #{outBizNo}, #{ruleVersion}, #{traceId})
+  </insert>
+
 </mapper>

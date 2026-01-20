@@ -33,6 +33,18 @@ public class PlayReportResponse {
     private Integer amount;
     private String outBizNo;
 
+    /** 检查奖励是否已经持久化（已插入 reward_flow） */
+    private Boolean issued;
+
+    /** 如果已持久化，则为 reward_flow 主键 */
+    private Long flowId;
+
+    /** 如果已持久化，则为 outbox event id */
+    private String eventId;
+
+    /** 奖励发放状态 */
+    private String issueStatus;
+
     public Integer getStage() {
       return stage;
     }
@@ -63,6 +75,38 @@ public class PlayReportResponse {
 
     public void setOutBizNo(String outBizNo) {
       this.outBizNo = outBizNo;
+    }
+
+    public Boolean getIssued() {
+      return issued;
+    }
+
+    public void setIssued(Boolean issued) {
+      this.issued = issued;
+    }
+
+    public Long getFlowId() {
+      return flowId;
+    }
+
+    public void setFlowId(Long flowId) {
+      this.flowId = flowId;
+    }
+
+    public String getEventId() {
+      return eventId;
+    }
+
+    public void setEventId(String eventId) {
+      this.eventId = eventId;
+    }
+
+    public String getIssueStatus() {
+      return issueStatus;
+    }
+
+    public void setIssueStatus(String issueStatus) {
+      this.issueStatus = issueStatus;
     }
   }
 

@@ -10,11 +10,10 @@ import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 /**
- * 计算分阶段发放的奖励（仅预览 暂无实现发放）。
+ * 计算分阶段发放的奖励
  */
 @Service
 public class AwardPreviewService {

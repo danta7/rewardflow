@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Objects;
+import java.util.Map;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class PlayReportAppService {
   private final PlayDailyAggService aggService;
   private final RewardFlowProperties props;
   private final AwardPreviewService awardPreviewService;
+  private final AwardIssueService awardIssueService;
   private final Tracer tracer;
 
   public PlayReportAppService(PlayDurationReportMapper reportMapper,
@@ -32,12 +34,14 @@ public class PlayReportAppService {
                               PlayDailyAggService aggService,
                               RewardFlowProperties props,
                               AwardPreviewService awardPreviewService,
+                              AwardIssueService awardIssueService,
                               Tracer tracer) {
     this.reportMapper = reportMapper;
     this.dailyMapper = dailyMapper;
     this.aggService = aggService;
     this.props = props;
     this.awardPreviewService = awardPreviewService;
+    this.awardIssueService = awardIssueService;
     this.tracer = tracer;
   }
 
@@ -89,7 +93,15 @@ public class PlayReportAppService {
       AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, out.totalDuration, resp.getTraceId());
       resp.setHitRuleVersion(preview.getHitRuleVersion());
       resp.setGrayHit(preview.isGrayHit());
+      // 写发奖业务状态+outbox
+      Map<String, AwardIssueService.IssueResult> issued = awardIssueService.issue(
+          req.getUserId(), req.getScene(), bizDate, out.totalDuration,
+          preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
+
+      applyIssueResult(preview.getItems(), issued);
+
       resp.setAwardPlans(preview.getItems());
+
       return resp;
 
     } catch (DuplicateKeyException dup) {
@@ -105,9 +117,32 @@ public class PlayReportAppService {
         AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(), resp.getTraceId());
         resp.setHitRuleVersion(preview.getHitRuleVersion());
         resp.setGrayHit(preview.isGrayHit());
+
+        Map<String, AwardIssueService.IssueResult> issued = awardIssueService.issue(
+            req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(),
+            preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
+        applyIssueResult(preview.getItems(), issued);
         resp.setAwardPlans(preview.getItems());
       }
       return resp;
+    }
+  }
+
+  // 把issue 返回的 Map 里的发奖结果回填到 plans 列表中
+  private void applyIssueResult(java.util.List<PlayReportResponse.RewardPlanItem> items,
+                                java.util.Map<String, AwardIssueService.IssueResult> issued) {
+    if (items == null || items.isEmpty() || issued == null || issued.isEmpty()) {
+      return;
+    }
+    for (PlayReportResponse.RewardPlanItem it : items) {
+      AwardIssueService.IssueResult r = issued.get(it.getOutBizNo());
+      if (r == null) {
+        continue;
+      }
+      it.setIssued(r.getIssued());
+      it.setFlowId(r.getFlowId());
+      it.setEventId(r.getEventId());
+      it.setIssueStatus(r.getIssueStatus());
     }
   }
 

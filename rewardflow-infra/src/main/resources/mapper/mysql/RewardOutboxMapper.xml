@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.rewardflow.infra.mysql.mapper.RewardOutboxMapper">
+
+  <insert id="insert">
+    INSERT INTO reward_outbox
+      (event_id, out_biz_no, event_type, payload, status, retry_count, next_retry_time, trace_id)
+    VALUES
+      (#{eventId}, #{outBizNo}, #{eventType}, #{payload}, #{status}, #{retryCount}, #{nextRetryTime}, #{traceId})
+  </insert>
+
+  <select id="selectPending" resultType="com.rewardflow.infra.mysql.entity.RewardOutboxDO">
+    SELECT event_id AS eventId,
+           out_biz_no AS outBizNo,
+           event_type AS eventType,
+           payload,
+           status,
+           retry_count AS retryCount,
+           next_retry_time AS nextRetryTime,
+           trace_id AS traceId,
+           create_time AS createTime,
+           update_time AS updateTime
+    FROM reward_outbox
+    WHERE status = 0
+      AND (next_retry_time IS NULL OR next_retry_time &lt;= #{now})
+    ORDER BY create_time ASC
+    LIMIT #{limit}
+  </select>
+
+  <update id="markSent">
+    UPDATE reward_outbox
+    SET status = 1,
+        update_time = NOW()
+    WHERE event_id = #{eventId}
+      AND status = 0
+  </update>
+
+  <update id="updateRetry">
+    UPDATE reward_outbox
+    SET status = #{status},
+        retry_count = #{retryCount},
+        next_retry_time = #{nextRetryTime},
+        update_time = NOW()
+    WHERE event_id = #{eventId}
+  </update>
+
+  <select id="selectByOutBizNoAndEventType" resultType="com.rewardflow.infra.mysql.entity.RewardOutboxDO">
+    SELECT event_id AS eventId,
+           out_biz_no AS outBizNo,
+           event_type AS eventType,
+           payload,
+           status,
+           retry_count AS retryCount,
+           next_retry_time AS nextRetryTime,
+           trace_id AS traceId,
+           create_time AS createTime,
+           update_time AS updateTime
+    FROM reward_outbox
+    WHERE out_biz_no = #{outBizNo}
+      AND event_type = #{eventType}
+    LIMIT 1
+  </select>
+</mapper>

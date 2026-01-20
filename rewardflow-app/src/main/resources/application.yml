@@ -92,6 +92,15 @@ rewardflow:
     fallback-resource: classpath:rules/default-award-rules.json
   award:
     prize-code: COIN
+  mq:
+    exchange: rewardflow.award.exchange
+    routing-key: award.created
+    queue: rewardflow.award.queue
+  outbox:
+    scan-delay-ms: 2000   # 2s 扫描一次 outbox 表
+    batch-size: 100     # 每次最多取 100 条
+    max-retry: 10   
+    base-backoff-seconds: 2 # 指数退避
 
 ---
 # Enable Nacos (config + discovery) when you are ready
