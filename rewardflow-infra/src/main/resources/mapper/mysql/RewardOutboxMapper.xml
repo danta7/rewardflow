@@ -63,4 +63,15 @@
         update_time = NOW()
     WHERE event_id = #{eventId}
   </update>
+
+
+<select id="listOutBizNoLike" resultType="java.lang.String">
+  SELECT out_biz_no
+  FROM reward_outbox
+  WHERE out_biz_no LIKE #{like}
+    AND event_type = 'AWARD_CREATED'
+  ORDER BY create_time ASC
+  LIMIT #{limit}
+</select>
+
 </mapper>

@@ -7,7 +7,7 @@ public class RewardOutboxDO {
   /** 主键: event_id. */
   private String eventId;
   private String outBizNo;    // 业务幂等号
-  private String eventType;   
+  private String eventType;
   private String payload;
   /** 奖励发放状态：0=PENDING, 1=SENT, 2=FAILED. */
   private Integer status;

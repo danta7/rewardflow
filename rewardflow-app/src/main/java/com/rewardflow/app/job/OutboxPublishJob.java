@@ -2,6 +2,7 @@ package com.rewardflow.app.job;
 
 import com.rewardflow.app.config.OutboxProperties;
 import com.rewardflow.app.config.RewardMqProperties;
+import com.rewardflow.app.service.FeatureCenterService;
 import com.rewardflow.infra.mysql.entity.RewardOutboxDO;
 import com.rewardflow.infra.mysql.mapper.RewardOutboxMapper;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class OutboxPublishJob {
   private static final Logger log = LoggerFactory.getLogger(OutboxPublishJob.class);
 
   private final RewardOutboxMapper outboxMapper;
+  private final FeatureCenterService featureCenterService;
   private final RabbitTemplate rabbitTemplate;
   private final OutboxProperties outboxProps;
   private final RewardMqProperties mqProps;
@@ -32,16 +34,22 @@ public class OutboxPublishJob {
   public OutboxPublishJob(RewardOutboxMapper outboxMapper,
                           RabbitTemplate rabbitTemplate,
                           OutboxProperties outboxProps,
+                          FeatureCenterService featureCenterService,
                           RewardMqProperties mqProps) {
     this.outboxMapper = outboxMapper;
     this.rabbitTemplate = rabbitTemplate;
+    this.featureCenterService = featureCenterService;
     this.outboxProps = outboxProps;
     this.mqProps = mqProps;
   }
 
   @Scheduled(fixedDelayString = "${rewardflow.outbox.scan-delay-ms:2000}")
   public void scanAndPublish() {
-    // 周期性从 outbox 表拉去待发布事件 -> 发到MQ -> 成功标记 SENT，失败更新重试状态
+    Boolean enabled = featureCenterService.currentConfig().getOutboxPublishEnabled();
+    if (enabled != null && !enabled) {
+      return;
+    }
+
     LocalDateTime now = LocalDateTime.now();
     List<RewardOutboxDO> list = outboxMapper.selectPending(now, outboxProps.getBatchSize());
     if (list == null || list.isEmpty()) {

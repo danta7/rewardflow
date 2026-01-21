@@ -2,6 +2,7 @@ package com.rewardflow.app.service;
 
 import com.rewardflow.app.config.RewardFlowProperties;
 import com.rewardflow.app.exception.BizException;
+import java.util.Map;
 import java.time.Duration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -21,10 +22,14 @@ public class RiskControlService {
   private static final String DUR_PREFIX = "rf:risk:dur:";
 
   private final StringRedisTemplate redis;
+  private final RiskEventService riskEventService;
   private final RewardFlowProperties props;
 
-  public RiskControlService(StringRedisTemplate redis, RewardFlowProperties props) {
+  public RiskControlService(StringRedisTemplate redis,
+                            RiskEventService riskEventService,
+                            RewardFlowProperties props) {
     this.redis = redis;
+    this.riskEventService = riskEventService;
     this.props = props;
   }
 
@@ -33,7 +38,6 @@ public class RiskControlService {
    */
   public void checkMinuteLimits(String userId, String scene, int duration, long nowMs) {
     RewardFlowProperties.Risk risk = props.getRisk();
-    // 把时间戳按分钟取整
     long minute = nowMs / 60_000L;
     String cntKey = CNT_PREFIX + scene + ":" + userId + ":" + minute;
     String durKey = DUR_PREFIX + scene + ":" + userId + ":" + minute;
@@ -44,6 +48,7 @@ public class RiskControlService {
       redis.expire(cntKey, Duration.ofSeconds(120));
     }
     if (cnt != null && cnt > risk.getMaxReportsPerMinute()) {
+      riskEventService.log(userId, scene, null, "RATE_LIMIT", Map.of("kind","count","count", cnt, "limit", risk.getMaxReportsPerMinute()));
       throw new BizException(4291, "too many reports per minute");
     }
 
@@ -53,6 +58,7 @@ public class RiskControlService {
       redis.expire(durKey, Duration.ofSeconds(120));
     }
     if (sum != null && sum > risk.getMaxDurationPerMinute()) {
+      riskEventService.log(userId, scene, null, "RATE_LIMIT", Map.of("kind","duration","sum", sum, "limit", risk.getMaxDurationPerMinute()));
       throw new BizException(4292, "too much duration per minute");
     }
   }

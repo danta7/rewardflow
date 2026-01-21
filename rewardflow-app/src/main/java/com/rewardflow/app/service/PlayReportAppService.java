@@ -13,8 +13,8 @@ import io.micrometer.tracing.Tracer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Objects;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +28,7 @@ public class PlayReportAppService {
   private final RewardFlowProperties props;
   private final AwardPreviewService awardPreviewService;
   private final AwardIssueService awardIssueService;
+  private final FeatureCenterService featureCenterService;
   private final RedisDedupService redisDedupService;
   private final RiskControlService riskControlService;
   private final Tracer tracer;
@@ -38,6 +39,7 @@ public class PlayReportAppService {
                               RewardFlowProperties props,
                               AwardPreviewService awardPreviewService,
                               AwardIssueService awardIssueService,
+                              FeatureCenterService featureCenterService,
                               RedisDedupService redisDedupService,
                               RiskControlService riskControlService,
                               Tracer tracer) {
@@ -47,6 +49,7 @@ public class PlayReportAppService {
     this.props = props;
     this.awardPreviewService = awardPreviewService;
     this.awardIssueService = awardIssueService;
+    this.featureCenterService = featureCenterService;
     this.redisDedupService = redisDedupService;
     this.riskControlService = riskControlService;
     this.tracer = tracer;
@@ -101,7 +104,16 @@ public class PlayReportAppService {
           AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(), resp.getTraceId());
           resp.setHitRuleVersion(preview.getHitRuleVersion());
           resp.setGrayHit(preview.isGrayHit());
-          java.util.Map<String, IssueResult> issued = awardIssueService.issue(
+
+          // Feature switch: runtime rollback / degrade
+          boolean issueEnabled = featureCenterService.effectiveForScene(req.getScene()).getAwardIssueEnabled();
+          if (!issueEnabled) {
+            applyDisabled(preview.getItems());
+            resp.setAwardPlans(preview.getItems());
+            return resp;
+          }
+
+          Map<String, IssueResult> issued = awardIssueService.issue(
               req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(),
               preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
           applyIssueResult(preview.getItems(), issued);
@@ -130,6 +142,14 @@ public class PlayReportAppService {
       resp.setHitRuleVersion(preview.getHitRuleVersion());
       resp.setGrayHit(preview.isGrayHit());
 
+      // Feature switch: runtime rollback / degrade
+      boolean issueEnabled = featureCenterService.effectiveForScene(req.getScene()).getAwardIssueEnabled();
+      if (!issueEnabled) {
+        applyDisabled(preview.getItems());
+        resp.setAwardPlans(preview.getItems());
+        return resp;
+      }
+
       // 写发奖业务状态+outbox
       Map<String, IssueResult> issued = awardIssueService.issue(
           req.getUserId(), req.getScene(), bizDate, out.totalDuration,
@@ -155,6 +175,14 @@ public class PlayReportAppService {
         AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(), resp.getTraceId());
         resp.setHitRuleVersion(preview.getHitRuleVersion());
         resp.setGrayHit(preview.isGrayHit());
+        
+        // Feature switch: runtime rollback / degrade
+        boolean issueEnabled = featureCenterService.effectiveForScene(req.getScene()).getAwardIssueEnabled();
+        if (!issueEnabled) {
+          applyDisabled(preview.getItems());
+          resp.setAwardPlans(preview.getItems());
+          return resp;
+        }
 
         Map<String, IssueResult> issued = awardIssueService.issue(
             req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(),
@@ -166,9 +194,20 @@ public class PlayReportAppService {
     }
   }
 
-  // 把issue 返回的 Map 里的发奖结果回填到 plans 列表中
+
+private void applyDisabled(java.util.List<PlayReportResponse.RewardPlanItem> items) {
+  if (items == null) return;
+  for (PlayReportResponse.RewardPlanItem it : items) {
+    if (it == null) continue;
+    it.setIssued(false);
+    it.setFlowId(null);
+    it.setEventId(null);
+    it.setIssueStatus("DISABLED");
+  }
+}
+
   private void applyIssueResult(java.util.List<PlayReportResponse.RewardPlanItem> items,
-                                java.util.Map<String, IssueResult> issued) {
+                                Map<String, IssueResult> issued) {
     if (items == null || items.isEmpty() || issued == null || issued.isEmpty()) {
       return;
     }

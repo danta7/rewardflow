@@ -15,29 +15,37 @@ public class RewardHandlerFactory {
   private final Map<String, RewardHandler> handlerMap = new HashMap<>();
 
   public RewardHandlerFactory(List<RewardHandler> handlers) {
-    if (handlers != null) {
-      for (RewardHandler h : handlers) {
-        String code = h.prizeCode();
-        if (code == null || code.isBlank()) {
-          throw new IllegalArgumentException("Handler prizeCode() is null/empty: " + h.getClass().getName());
-        }
+    if (handlers == null) return;
 
-        RewardHandler existing = handlerMap.putIfAbsent(code, h);
-        if (existing != null) {
-          // 发现重复 prizeCode ：启动直接失败，避免运行时路由到错误实现
-          throw new IllegalStateException(
+    for (RewardHandler h : handlers) {
+      if (h == null) {
+        continue;
+      }
+      
+      String code = h.prizeCode();
+      if (code == null || code.isBlank()) {
+        throw new IllegalStateException("RewardHandler prizeCode is blank: " + h.getClass().getName());
+      }
+      code = code.trim().toUpperCase();
+      
+      RewardHandler existing = handlerMap.putIfAbsent(code, h);
+      if (existing != null) {
+        // 发现重复 prizeCode ：启动直接失败，避免运行时路由到错误实现
+        throw new IllegalStateException(
             "Duplicate RewardHandler for prizeCode=" + code +
-            ", existed = " + existing.getClass().getName()
-            + ", new = " + h.getClass().getName()
-          );
-        }
-        handlerMap.put(h.prizeCode(), h);
+                ", existed = " + existing.getClass().getName()
+                + ", new = " + h.getClass().getName()
+        );
       }
     }
   }
 
   public RewardHandler get(String prizeCode) {
-    RewardHandler h = handlerMap.get(prizeCode);
+    if (prizeCode == null || prizeCode.isBlank()) {
+      throw new IllegalArgumentException("prizeCode is blank");
+    }
+    String key = prizeCode.trim().toUpperCase();
+    RewardHandler h = handlerMap.get(key);
     if (h == null) {
       throw new IllegalArgumentException("No handler for prizeCode=" + prizeCode);
     }

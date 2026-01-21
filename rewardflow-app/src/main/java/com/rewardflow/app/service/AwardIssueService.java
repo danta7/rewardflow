@@ -26,7 +26,7 @@ public class AwardIssueService {
 
   private final AwardProperties awardProps;
   private final RewardHandlerFactory handlerFactory;
-  private final AwardAuditLogRepository auditLogRepository; // Mongo: award audit log
+  private final AwardAuditLogRepository auditLogRepository;
 
   public AwardIssueService(AwardProperties awardProps,
                            RewardHandlerFactory handlerFactory,

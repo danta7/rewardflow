@@ -1,0 +1,12 @@
+{
+  "awardIssueEnabled": true,
+  "outboxPublishEnabled": true,
+  "reconcileEnabled": true,
+  "ruleSnapshotEnabled": true,
+  "ruleSimulationEnabled": true,
+  "scenes": {
+    "audio_play": {
+      "awardIssueEnabled": true
+    }
+  }
+}

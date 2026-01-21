@@ -28,4 +28,14 @@
     LIMIT 1
   </select>
 
+
+<select id="listOutBizNoBySceneAndDate" resultType="java.lang.String">
+  SELECT out_biz_no
+  FROM reward_flow
+  WHERE biz_scene = #{scene}
+    AND prize_date = #{bizDate}
+  ORDER BY id ASC
+  LIMIT #{limit}
+</select>
+
 </mapper>

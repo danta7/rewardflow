@@ -17,5 +17,11 @@ public interface RewardFlowMapper {
   /** 插入发奖记录 */
   int insert(RewardFlowDO record);
 
+  /** 查询指定场景和日期的外部幂等号列表，限制返回数量 */
+  java.util.List<String> listOutBizNoBySceneAndDate(@org.apache.ibatis.annotations.Param("scene") String scene,
+                                                 @org.apache.ibatis.annotations.Param("bizDate") String bizDate,
+                                                 @org.apache.ibatis.annotations.Param("limit") int limit);
+
+
   RewardFlowDO selectByOutBizNo(@Param("outBizNo") String outBizNo);
 }

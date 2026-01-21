@@ -96,6 +96,16 @@ rewardflow:
     fallback-resource: classpath:rules/default-award-rules.json
   award:
     prize-code: COIN
+  feature-center:
+    enabled: true
+    server-addr: ${NACOS_ADDR:localhost:8848}
+    username: ${NACOS_USERNAME:}
+    password: ${NACOS_PASSWORD:}
+    data-id: rewardflow-feature-switches.json
+    group: ${NACOS_GROUP:DEFAULT_GROUP}
+    timeout-ms: 3000
+    fallback-resource: classpath:features/default-feature-config.json
+
   mq:
     exchange: rewardflow.award.exchange
     routing-key: award.created

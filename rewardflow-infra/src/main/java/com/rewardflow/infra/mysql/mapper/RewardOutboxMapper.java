@@ -11,6 +11,11 @@ public interface RewardOutboxMapper {
 
   int insert(RewardOutboxDO record);
 
+  // 查询 outBizNo 模糊匹配的记录，限制返回数量
+  List<String> listOutBizNoLike(@org.apache.ibatis.annotations.Param("like") String likePattern,
+                                       @org.apache.ibatis.annotations.Param("limit") int limit);
+
+
   RewardOutboxDO selectByOutBizNoAndEventType(@Param("outBizNo") String outBizNo,
                                              @Param("eventType") String eventType);
   // 捞待发送事件（status = 0）

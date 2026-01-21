@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Publish award rules into Nacos config center for local development.
+# 把奖励规则发布到 Nacos 配置中心
 #
 # Default creds are nacos/nacos (commonly used in local docker setups).
 
