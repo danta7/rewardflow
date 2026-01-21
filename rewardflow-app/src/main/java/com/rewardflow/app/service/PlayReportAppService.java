@@ -2,6 +2,7 @@ package com.rewardflow.app.service;
 
 import com.rewardflow.api.dto.PlayReportRequest;
 import com.rewardflow.api.dto.PlayReportResponse;
+import com.rewardflow.app.award.model.IssueResult;
 import com.rewardflow.app.config.RewardFlowProperties;
 import com.rewardflow.app.exception.BizException;
 import com.rewardflow.infra.mysql.entity.PlayDurationReportDO;
@@ -27,6 +28,8 @@ public class PlayReportAppService {
   private final RewardFlowProperties props;
   private final AwardPreviewService awardPreviewService;
   private final AwardIssueService awardIssueService;
+  private final RedisDedupService redisDedupService;
+  private final RiskControlService riskControlService;
   private final Tracer tracer;
 
   public PlayReportAppService(PlayDurationReportMapper reportMapper,
@@ -35,6 +38,8 @@ public class PlayReportAppService {
                               RewardFlowProperties props,
                               AwardPreviewService awardPreviewService,
                               AwardIssueService awardIssueService,
+                              RedisDedupService redisDedupService,
+                              RiskControlService riskControlService,
                               Tracer tracer) {
     this.reportMapper = reportMapper;
     this.dailyMapper = dailyMapper;
@@ -42,6 +47,8 @@ public class PlayReportAppService {
     this.props = props;
     this.awardPreviewService = awardPreviewService;
     this.awardIssueService = awardIssueService;
+    this.redisDedupService = redisDedupService;
+    this.riskControlService = riskControlService;
     this.tracer = tracer;
   }
 
@@ -79,6 +86,35 @@ public class PlayReportAppService {
     record.setSyncTime(req.getSyncTime());
     record.setBizDate(bizDate);
 
+    // Redis 去重短路 以减轻弱网下 MySQL 压力
+    if (props.getRisk().isRedisDedupEnabled()) {
+      boolean first = redisDedupService.tryAcquire(req.getScene(), req.getUserId(), req.getSoundId(), req.getSyncTime(),
+          props.getRisk().getRedisDedupTtlSeconds());
+      if (!first) {
+        resp.setDuplicate(true);
+        resp.setReportId(null);
+        // Best effort: 返回当前的 totalDuration 方便 Debug
+        UserPlayDailyDO daily = dailyMapper.selectOne(req.getUserId(), req.getScene(), bizDate);
+        if (daily != null) {
+          resp.setTotalDuration(daily.getTotalDuration());
+          resp.setDeltaDuration(0);
+          AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(), resp.getTraceId());
+          resp.setHitRuleVersion(preview.getHitRuleVersion());
+          resp.setGrayHit(preview.isGrayHit());
+          java.util.Map<String, IssueResult> issued = awardIssueService.issue(
+              req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(),
+              preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
+          applyIssueResult(preview.getItems(), issued);
+          resp.setAwardPlans(preview.getItems());
+        }
+        return resp;
+      }
+    }
+
+    // 风控校验：分钟级别限额
+    riskControlService.checkMinuteLimits(req.getUserId(), req.getScene(), req.getDuration(), nowMs);
+    // trade-off: 频控放在了去重之后，会出现如果有人恶意刷同一个 syncTime 的请求，可能会绕过频控
+
     try {
       reportMapper.insert(record);
       resp.setDuplicate(false);
@@ -93,8 +129,9 @@ public class PlayReportAppService {
       AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, out.totalDuration, resp.getTraceId());
       resp.setHitRuleVersion(preview.getHitRuleVersion());
       resp.setGrayHit(preview.isGrayHit());
+
       // 写发奖业务状态+outbox
-      Map<String, AwardIssueService.IssueResult> issued = awardIssueService.issue(
+      Map<String, IssueResult> issued = awardIssueService.issue(
           req.getUserId(), req.getScene(), bizDate, out.totalDuration,
           preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
 
@@ -105,6 +142,7 @@ public class PlayReportAppService {
       return resp;
 
     } catch (DuplicateKeyException dup) {
+      // todo: Duplicate 成本有点高 ,这里的分支还会查表、计算preview、甚至 issue
       // 弱网重试：幂等
       resp.setDuplicate(true);
       resp.setReportId(null);
@@ -118,7 +156,7 @@ public class PlayReportAppService {
         resp.setHitRuleVersion(preview.getHitRuleVersion());
         resp.setGrayHit(preview.isGrayHit());
 
-        Map<String, AwardIssueService.IssueResult> issued = awardIssueService.issue(
+        Map<String, IssueResult> issued = awardIssueService.issue(
             req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(),
             preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
         applyIssueResult(preview.getItems(), issued);
@@ -130,12 +168,12 @@ public class PlayReportAppService {
 
   // 把issue 返回的 Map 里的发奖结果回填到 plans 列表中
   private void applyIssueResult(java.util.List<PlayReportResponse.RewardPlanItem> items,
-                                java.util.Map<String, AwardIssueService.IssueResult> issued) {
+                                java.util.Map<String, IssueResult> issued) {
     if (items == null || items.isEmpty() || issued == null || issued.isEmpty()) {
       return;
     }
     for (PlayReportResponse.RewardPlanItem it : items) {
-      AwardIssueService.IssueResult r = issued.get(it.getOutBizNo());
+      IssueResult r = issued.get(it.getOutBizNo());
       if (r == null) {
         continue;
       }

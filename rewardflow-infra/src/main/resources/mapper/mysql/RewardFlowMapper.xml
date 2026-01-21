@@ -21,4 +21,11 @@
       (#{userId}, #{bizScene}, #{prizeCode}, #{prizeDate}, #{prizeStage}, #{prizeAmount}, #{outBizNo}, #{ruleVersion}, #{traceId})
   </insert>
 
+  <select id="selectByOutBizNo" resultType="com.rewardflow.infra.mysql.entity.RewardFlowDO">
+    SELECT id, user_id, biz_scene, prize_code, prize_date, prize_stage, prize_amount, out_biz_no, rule_version, trace_id, create_time, update_time
+    FROM reward_flow
+    WHERE out_biz_no = #{outBizNo}
+    LIMIT 1
+  </select>
+
 </mapper>

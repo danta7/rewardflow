@@ -11,6 +11,8 @@ public interface RewardOutboxMapper {
 
   int insert(RewardOutboxDO record);
 
+  RewardOutboxDO selectByOutBizNoAndEventType(@Param("outBizNo") String outBizNo,
+                                             @Param("eventType") String eventType);
   // 捞待发送事件（status = 0）
   List<RewardOutboxDO> selectPending(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
@@ -22,8 +24,4 @@ public interface RewardOutboxMapper {
                   @Param("retryCount") int retryCount,
                   @Param("nextRetryTime") LocalDateTime nextRetryTime,
                   @Param("status") int status);
-
-  // 幂等查询：根据（outBizNo, eventType）找到已经存在的 outbox 事件
-  RewardOutboxDO selectByOutBizNoAndEventType(@Param("outBizNo") String outBizNo,
-                                             @Param("eventType") String eventType);
 }

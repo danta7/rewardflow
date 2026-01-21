@@ -16,4 +16,6 @@ public interface RewardFlowMapper {
                                    @Param("prizeCode") String prizeCode);
   /** 插入发奖记录 */
   int insert(RewardFlowDO record);
+
+  RewardFlowDO selectByOutBizNo(@Param("outBizNo") String outBizNo);
 }

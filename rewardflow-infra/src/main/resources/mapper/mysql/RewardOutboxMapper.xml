@@ -12,6 +12,23 @@
       (#{eventId}, #{outBizNo}, #{eventType}, #{payload}, #{status}, #{retryCount}, #{nextRetryTime}, #{traceId})
   </insert>
 
+  <select id="selectByOutBizNoAndEventType" resultType="com.rewardflow.infra.mysql.entity.RewardOutboxDO">
+    SELECT event_id AS eventId,
+           out_biz_no AS outBizNo,
+           event_type AS eventType,
+           payload,
+           status,
+           retry_count AS retryCount,
+           next_retry_time AS nextRetryTime,
+           trace_id AS traceId,
+           create_time AS createTime,
+           update_time AS updateTime
+    FROM reward_outbox
+    WHERE out_biz_no = #{outBizNo}
+      AND event_type = #{eventType}
+    LIMIT 1
+  </select>
+
   <select id="selectPending" resultType="com.rewardflow.infra.mysql.entity.RewardOutboxDO">
     SELECT event_id AS eventId,
            out_biz_no AS outBizNo,
@@ -46,21 +63,4 @@
         update_time = NOW()
     WHERE event_id = #{eventId}
   </update>
-
-  <select id="selectByOutBizNoAndEventType" resultType="com.rewardflow.infra.mysql.entity.RewardOutboxDO">
-    SELECT event_id AS eventId,
-           out_biz_no AS outBizNo,
-           event_type AS eventType,
-           payload,
-           status,
-           retry_count AS retryCount,
-           next_retry_time AS nextRetryTime,
-           trace_id AS traceId,
-           create_time AS createTime,
-           update_time AS updateTime
-    FROM reward_outbox
-    WHERE out_biz_no = #{outBizNo}
-      AND event_type = #{eventType}
-    LIMIT 1
-  </select>
 </mapper>

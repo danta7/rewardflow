@@ -81,6 +81,10 @@ rewardflow:
   risk:
     max-duration-per-report: 60
     max-clock-skew-ms: 300000
+    redis-dedup-enabled: true
+    redis-dedup-ttl-seconds: 172800
+    max-reports-per-minute: 120
+    max-duration-per-minute: 300
   rule-center:
     enabled: true
     server-addr: ${NACOS_ADDR:localhost:8848}
