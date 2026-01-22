@@ -27,20 +27,19 @@ import org.springframework.stereotype.Service;
 public class RuleOpsService {
 
   private final RuleSelectionService ruleSelectionService;
-  private final AwardCalculator awardCalculator;
   private final AwardProperties awardProperties;
   private final RewardFlowProperties rewardFlowProperties;
   private final FeatureCenterService featureCenterService;
   private final RuleSimulationLogRepository simulationRepo;
 
+  private final AwardCalculator awardCalculator = new AwardCalculator();
+
   public RuleOpsService(RuleSelectionService ruleSelectionService,
-                        AwardCalculator awardCalculator,
                         AwardProperties awardProperties,
                         RewardFlowProperties rewardFlowProperties,
                         FeatureCenterService featureCenterService,
                         RuleSimulationLogRepository simulationRepo) {
     this.ruleSelectionService = ruleSelectionService;
-    this.awardCalculator = awardCalculator;
     this.awardProperties = awardProperties;
     this.rewardFlowProperties = rewardFlowProperties;
     this.featureCenterService = featureCenterService;
@@ -67,7 +66,8 @@ public class RuleOpsService {
     List<AwardPlan> plans = awardCalculator.calculate(
         req.getTotalDuration(),
         rv,
-        java.util.Set.of()
+        Map.of(),
+        awardProperties.getPrizeCode()
     );
 
     List<PlayReportResponse.RewardPlanItem> items = new ArrayList<>();
@@ -76,7 +76,8 @@ public class RuleOpsService {
       it.setStage(p.getStage());
       it.setThreshold(p.getThreshold());
       it.setAmount(p.getAmount());
-      it.setOutBizNo(buildOutBizNo(req.getUserId(), awardProperties.getPrizeCode(), req.getScene(), bizDate, p.getStage()));
+      it.setPrizeCode(p.getPrizeCode());
+      it.setOutBizNo(buildOutBizNo(req.getUserId(), p.getPrizeCode(), req.getScene(), bizDate, p.getStage()));
       it.setIssued(false);
       it.setIssueStatus("SIMULATED");
       items.add(it);
@@ -106,6 +107,7 @@ public class RuleOpsService {
       Map<String, Object> summary = new HashMap<>();
       summary.put("awardPlanCount", items.size());
       summary.put("stages", items.stream().map(PlayReportResponse.RewardPlanItem::getStage).toList());
+      summary.put("prizeCodes", items.stream().map(PlayReportResponse.RewardPlanItem::getPrizeCode).distinct().toList());
       log.setResult(summary);
       simulationRepo.save(log);
     } catch (Exception ignore) {

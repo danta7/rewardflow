@@ -5,13 +5,15 @@ public class AwardPlan {
   private int stage;
   private int threshold;
   private int amount;
+  private String prizeCode;
 
   public AwardPlan() {}
 
-  public AwardPlan(int stage, int threshold, int amount) {
+  public AwardPlan(int stage, int threshold, int amount, String prizeCode) {
     this.stage = stage;
     this.threshold = threshold;
     this.amount = amount;
+    this.prizeCode = prizeCode;
   }
 
   public int getStage() {
@@ -36,5 +38,13 @@ public class AwardPlan {
 
   public void setAmount(int amount) {
     this.amount = amount;
+  }
+
+  public String getPrizeCode() {
+    return prizeCode;
+  }
+
+  public void setPrizeCode(String prizeCode) {
+    this.prizeCode = prizeCode;
   }
 }

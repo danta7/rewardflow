@@ -48,17 +48,26 @@ public class RiskControlService {
       redis.expire(cntKey, Duration.ofSeconds(120));
     }
     if (cnt != null && cnt > risk.getMaxReportsPerMinute()) {
-      riskEventService.log(userId, scene, null, "RATE_LIMIT", Map.of("kind","count","count", cnt, "limit", risk.getMaxReportsPerMinute()));
+      riskEventService.log(
+          userId,
+          scene,
+          null,
+          "RATE_LIMIT",
+          Map.of("kind", "count", "count", cnt, "limit", risk.getMaxReportsPerMinute()));
       throw new BizException(4291, "too many reports per minute");
     }
 
-    // 时长限制
     Long sum = redis.opsForValue().increment(durKey, duration);
     if (sum != null && sum == duration) {
       redis.expire(durKey, Duration.ofSeconds(120));
     }
     if (sum != null && sum > risk.getMaxDurationPerMinute()) {
-      riskEventService.log(userId, scene, null, "RATE_LIMIT", Map.of("kind","duration","sum", sum, "limit", risk.getMaxDurationPerMinute()));
+      riskEventService.log(
+          userId,
+          scene,
+          null,
+          "RATE_LIMIT",
+          Map.of("kind", "duration", "sum", sum, "limit", risk.getMaxDurationPerMinute()));
       throw new BizException(4292, "too much duration per minute");
     }
   }

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 用于规则中心和灰色路由 debug */
+/** 用于规则中心和灰度路由 debug */
 @RestController
 @RequestMapping("/api/v1/rules")
 public class RuleController {

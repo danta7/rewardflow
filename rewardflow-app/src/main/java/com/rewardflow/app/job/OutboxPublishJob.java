@@ -32,13 +32,13 @@ public class OutboxPublishJob {
   private final RewardMqProperties mqProps;
 
   public OutboxPublishJob(RewardOutboxMapper outboxMapper,
+                          FeatureCenterService featureCenterService,
                           RabbitTemplate rabbitTemplate,
                           OutboxProperties outboxProps,
-                          FeatureCenterService featureCenterService,
                           RewardMqProperties mqProps) {
     this.outboxMapper = outboxMapper;
-    this.rabbitTemplate = rabbitTemplate;
     this.featureCenterService = featureCenterService;
+    this.rabbitTemplate = rabbitTemplate;
     this.outboxProps = outboxProps;
     this.mqProps = mqProps;
   }

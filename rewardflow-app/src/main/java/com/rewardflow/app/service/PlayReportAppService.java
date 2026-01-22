@@ -13,6 +13,7 @@ import io.micrometer.tracing.Tracer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.dao.DuplicateKeyException;
@@ -34,15 +35,15 @@ public class PlayReportAppService {
   private final Tracer tracer;
 
   public PlayReportAppService(PlayDurationReportMapper reportMapper,
-                              UserPlayDailyMapper dailyMapper,
-                              PlayDailyAggService aggService,
-                              RewardFlowProperties props,
-                              AwardPreviewService awardPreviewService,
-                              AwardIssueService awardIssueService,
-                              FeatureCenterService featureCenterService,
-                              RedisDedupService redisDedupService,
-                              RiskControlService riskControlService,
-                              Tracer tracer) {
+      UserPlayDailyMapper dailyMapper,
+      PlayDailyAggService aggService,
+      RewardFlowProperties props,
+      AwardPreviewService awardPreviewService,
+      AwardIssueService awardIssueService,
+      FeatureCenterService featureCenterService,
+      RedisDedupService redisDedupService,
+      RiskControlService riskControlService,
+      Tracer tracer) {
     this.reportMapper = reportMapper;
     this.dailyMapper = dailyMapper;
     this.aggService = aggService;
@@ -81,6 +82,22 @@ public class PlayReportAppService {
     resp.setBizDate(bizDate.toString());
     resp.setTraceId(currentTraceId());
 
+    // Redis 去重短路
+    if (props.getRisk().isRedisDedupEnabled()) {
+      boolean first = redisDedupService.tryAcquire(
+          req.getScene(), req.getUserId(), req.getSoundId(), req.getSyncTime(),
+          props.getRisk().getRedisDedupTtlSeconds());
+      if (!first) {
+        resp.setDuplicate(true);
+        fillFromDailyBestEffort(resp, req.getUserId(), req.getScene(), bizDate);
+        return resp;
+      }
+    }
+
+    // 分钟级风控
+    riskControlService.checkMinuteLimits(req.getUserId(), req.getScene(), req.getDuration(), nowMs);
+
+    // 落库 + 聚合 + 预览/发奖 （主流程）
     PlayDurationReportDO record = new PlayDurationReportDO();
     record.setUserId(req.getUserId());
     record.setSoundId(req.getSoundId());
@@ -89,125 +106,85 @@ public class PlayReportAppService {
     record.setSyncTime(req.getSyncTime());
     record.setBizDate(bizDate);
 
-    // Redis 去重短路 以减轻弱网下 MySQL 压力
-    if (props.getRisk().isRedisDedupEnabled()) {
-      boolean first = redisDedupService.tryAcquire(req.getScene(), req.getUserId(), req.getSoundId(), req.getSyncTime(),
-          props.getRisk().getRedisDedupTtlSeconds());
-      if (!first) {
-        resp.setDuplicate(true);
-        resp.setReportId(null);
-        // Best effort: 返回当前的 totalDuration 方便 Debug
-        UserPlayDailyDO daily = dailyMapper.selectOne(req.getUserId(), req.getScene(), bizDate);
-        if (daily != null) {
-          resp.setTotalDuration(daily.getTotalDuration());
-          resp.setDeltaDuration(0);
-          AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(), resp.getTraceId());
-          resp.setHitRuleVersion(preview.getHitRuleVersion());
-          resp.setGrayHit(preview.isGrayHit());
-
-          // Feature switch: runtime rollback / degrade
-          boolean issueEnabled = featureCenterService.effectiveForScene(req.getScene()).getAwardIssueEnabled();
-          if (!issueEnabled) {
-            applyDisabled(preview.getItems());
-            resp.setAwardPlans(preview.getItems());
-            return resp;
-          }
-
-          Map<String, IssueResult> issued = awardIssueService.issue(
-              req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(),
-              preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
-          applyIssueResult(preview.getItems(), issued);
-          resp.setAwardPlans(preview.getItems());
-        }
-        return resp;
-      }
-    }
-
-    // 风控校验：分钟级别限额
-    riskControlService.checkMinuteLimits(req.getUserId(), req.getScene(), req.getDuration(), nowMs);
-    // trade-off: 频控放在了去重之后，会出现如果有人恶意刷同一个 syncTime 的请求，可能会绕过频控
-
     try {
-      reportMapper.insert(record);
+      reportMapper.insert(record);  // 明细表插入
       resp.setDuplicate(false);
       resp.setReportId(record.getId());
 
-      // 按天聚合播放时长
+      // 更新 user_play_daily（总时长）
       PlayDailyAggService.AggOutcome out = aggService.aggregate(req.getUserId(), req.getScene(), bizDate, req.getSyncTime());
       resp.setTotalDuration(out.totalDuration);
       resp.setDeltaDuration(out.deltaDuration);
 
-      // 选择规则 + 预览奖励计划
-      AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, out.totalDuration, resp.getTraceId());
-      resp.setHitRuleVersion(preview.getHitRuleVersion());
-      resp.setGrayHit(preview.isGrayHit());
-
-      // Feature switch: runtime rollback / degrade
-      boolean issueEnabled = featureCenterService.effectiveForScene(req.getScene()).getAwardIssueEnabled();
-      if (!issueEnabled) {
-        applyDisabled(preview.getItems());
-        resp.setAwardPlans(preview.getItems());
-        return resp;
-      }
-
-      // 写发奖业务状态+outbox
-      Map<String, IssueResult> issued = awardIssueService.issue(
-          req.getUserId(), req.getScene(), bizDate, out.totalDuration,
-          preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
-
-      applyIssueResult(preview.getItems(), issued);
-
-      resp.setAwardPlans(preview.getItems());
-
+      // 发奖预览 + 发奖
+      previewAndIssue(resp, req.getUserId(), req.getScene(), bizDate, out.totalDuration);
       return resp;
 
     } catch (DuplicateKeyException dup) {
-      // todo: Duplicate 成本有点高 ,这里的分支还会查表、计算preview、甚至 issue
-      // 弱网重试：幂等
+      // weak-network retry -> duplicate ok
       resp.setDuplicate(true);
       resp.setReportId(null);
-      // 最好effort返回当前的 totalDuration 方便 Debug
-      UserPlayDailyDO daily = dailyMapper.selectOne(req.getUserId(), req.getScene(), bizDate);
-      if (daily != null) {
-        resp.setTotalDuration(daily.getTotalDuration());
-        resp.setDeltaDuration(0);
-        // best effort
-        AwardPreviewService.PreviewResult preview = awardPreviewService.preview(req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(), resp.getTraceId());
-        resp.setHitRuleVersion(preview.getHitRuleVersion());
-        resp.setGrayHit(preview.isGrayHit());
-        
-        // Feature switch: runtime rollback / degrade
-        boolean issueEnabled = featureCenterService.effectiveForScene(req.getScene()).getAwardIssueEnabled();
-        if (!issueEnabled) {
-          applyDisabled(preview.getItems());
-          resp.setAwardPlans(preview.getItems());
-          return resp;
-        }
-
-        Map<String, IssueResult> issued = awardIssueService.issue(
-            req.getUserId(), req.getScene(), bizDate, daily.getTotalDuration(),
-            preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
-        applyIssueResult(preview.getItems(), issued);
-        resp.setAwardPlans(preview.getItems());
-      }
+      fillFromDailyBestEffort(resp, req.getUserId(), req.getScene(), bizDate);
       return resp;
     }
   }
 
-
-private void applyDisabled(java.util.List<PlayReportResponse.RewardPlanItem> items) {
-  if (items == null) return;
-  for (PlayReportResponse.RewardPlanItem it : items) {
-    if (it == null) continue;
-    it.setIssued(false);
-    it.setFlowId(null);
-    it.setEventId(null);
-    it.setIssueStatus("DISABLED");
+  // best effort 填充当天累计播放时长 + 发奖预览/发奖结果
+  private void fillFromDailyBestEffort(PlayReportResponse resp, String userId, String scene, LocalDate bizDate) {
+    UserPlayDailyDO daily = dailyMapper.selectOne(userId, scene, bizDate);
+    if (daily == null) {
+      resp.setTotalDuration(0);
+      resp.setDeltaDuration(0);
+      resp.setAwardPlans(List.of());
+      return;
+    }
+    resp.setTotalDuration(daily.getTotalDuration());
+    resp.setDeltaDuration(0);
+    previewAndIssue(resp, userId, scene, bizDate, daily.getTotalDuration());
   }
-}
 
-  private void applyIssueResult(java.util.List<PlayReportResponse.RewardPlanItem> items,
-                                Map<String, IssueResult> issued) {
+  // 预览并发奖
+  private void previewAndIssue(PlayReportResponse resp, String userId, String scene, LocalDate bizDate, int totalDuration) {
+    // 有哪些奖励命中
+    AwardPreviewService.PreviewResult preview =
+        awardPreviewService.preview(userId, scene, bizDate, totalDuration, resp.getTraceId());
+
+    resp.setHitRuleVersion(preview.getHitRuleVersion());
+    resp.setGrayHit(preview.isGrayHit());
+
+    // 验证feature开关
+    boolean issueEnabled = featureCenterService.effectiveForScene(scene).getAwardIssueEnabled();
+    if (!issueEnabled) {
+      applyDisabled(preview.getItems());
+      resp.setAwardPlans(preview.getItems());
+      return;
+    }
+
+    // 真正发奖 结果回填
+    Map<String, IssueResult> issued = awardIssueService.issue(
+        userId, scene, bizDate, totalDuration,
+        preview.getHitRuleVersion(), preview.isGrayHit(), preview.getItems(), resp.getTraceId());
+
+    applyIssueResult(preview.getItems(), issued);
+    resp.setAwardPlans(preview.getItems());
+  }
+
+  private void applyDisabled(List<PlayReportResponse.RewardPlanItem> items) {
+    if (items == null) {
+      return;
+    }
+    for (PlayReportResponse.RewardPlanItem it : items) {
+      if (it == null) {
+        continue;
+      }
+      it.setIssued(false);
+      it.setFlowId(null);
+      it.setEventId(null);
+      it.setIssueStatus("DISABLED");
+    }
+  }
+
+  private void applyIssueResult(List<PlayReportResponse.RewardPlanItem> items, Map<String, IssueResult> issued) {
     if (items == null || items.isEmpty() || issued == null || issued.isEmpty()) {
       return;
     }

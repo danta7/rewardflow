@@ -14,6 +14,14 @@
       AND prize_code = #{prizeCode}
   </select>
 
+  <select id="selectAwardedFlows" resultType="com.rewardflow.infra.mysql.entity.RewardFlowDO">
+    SELECT prize_code, prize_stage
+    FROM reward_flow
+    WHERE user_id = #{userId}
+      AND biz_scene = #{bizScene}
+      AND prize_date = #{prizeDate}
+  </select>
+
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO reward_flow
       (user_id, biz_scene, prize_code, prize_date, prize_stage, prize_amount, out_biz_no, rule_version, trace_id)
@@ -29,13 +37,13 @@
   </select>
 
 
-<select id="listOutBizNoBySceneAndDate" resultType="java.lang.String">
+  <select id="listOutBizNoBySceneAndDate" resultType="java.lang.String">
   SELECT out_biz_no
   FROM reward_flow
   WHERE biz_scene = #{scene}
     AND prize_date = #{bizDate}
   ORDER BY id ASC
   LIMIT #{limit}
-</select>
+  </select>
 
 </mapper>

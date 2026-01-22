@@ -55,7 +55,7 @@ public abstract class AbstractRewardHandler implements RewardHandler {
       r.setFlowId(existed == null ? null : existed.getId());
       // 即是 flow 已经存在，也要继续走下去确保 outbox 存在 因为上一次肯能在写 outbox 时失败了
     } catch (Exception ex) {
-      r.setIssued(false);
+      r.setIssued(false); // 注意 issued 表示本次是否创建了 flow
       r.setIssueStatus("FAILED");
       r.setError(ex.getClass().getSimpleName());
       return r;

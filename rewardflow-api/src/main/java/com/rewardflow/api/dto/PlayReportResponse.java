@@ -31,6 +31,8 @@ public class PlayReportResponse {
     private Integer stage;
     private Integer threshold;
     private Integer amount;
+    /** 当前阶段的 prizeCode (e.g. COIN / COUPON). */
+    private String prizeCode;
     private String outBizNo;
 
     /** 检查奖励是否已经持久化（已插入 reward_flow） */
@@ -67,6 +69,14 @@ public class PlayReportResponse {
 
     public void setAmount(Integer amount) {
       this.amount = amount;
+    }
+
+    public String getPrizeCode() {
+      return prizeCode;
+    }
+
+    public void setPrizeCode(String prizeCode) {
+      this.prizeCode = prizeCode;
     }
 
     public String getOutBizNo() {

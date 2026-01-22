@@ -11,6 +11,8 @@ public class RewardIssueContext {
   private Integer totalDuration;
   private String prizeCode;
   private String ruleVersion;
+  /** 当前请求是否符合灰度规则版本（用于审核/tracing）。 */
+  private boolean grayHit;
   private String traceId;
 
   public String getUserId() {
@@ -66,6 +68,16 @@ public class RewardIssueContext {
     this.ruleVersion = ruleVersion;
     return this;
   }
+
+  public boolean getGrayHit() {
+    return grayHit;
+  }
+
+  public RewardIssueContext setGrayHit(boolean grayHit) {
+    this.grayHit = grayHit;
+    return this;
+  }
+
 
   public String getTraceId() {
     return traceId;

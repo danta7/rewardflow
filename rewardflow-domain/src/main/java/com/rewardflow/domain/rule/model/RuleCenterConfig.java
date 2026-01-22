@@ -8,18 +8,32 @@ import java.util.Map;
  *
  * <p>Root object example:
  * <pre>
- * {
- *   "scenes": {
- *     "audio_play": {
- *       "activeRuleVersion": "v1",
- *       "gray": {"enabled": true, "expr": "uid < 10", "targetRuleVersion": "v2"},
- *       "rules": [
- *         {"ruleVersion": "v1", "stages": [{"stage":1,"threshold":160,"amount":1}]},
- *         {"ruleVersion": "v2", "stages": [{"stage":1,"threshold":120,"amount":1}]}
- *       ]
- *     }
- *   }
- * }
+{
+  "scenes": {
+    "audio_play": {
+      "activeRuleVersion": "v1",
+      "gray": {
+        "enabled": false,
+        "expr": "uid < 10",
+        "targetRuleVersion": "v2"
+      },
+      "rules": [
+        {
+          "ruleVersion": "v1",
+          "stages": [
+            { "stage": 1, "threshold": 160, "amount": 1, "prizeCode": "COIN" },
+          ]
+        },
+        {
+          "ruleVersion": "v2",
+          "stages": [
+            { "stage": 1, "threshold": 100, "amount": 2, "prizeCode": "COIN" },
+          ]
+        }
+      ]
+    }
+  }
+}
  * </pre>
  */
 public class RuleCenterConfig {
@@ -119,6 +133,8 @@ public class RuleCenterConfig {
     private int stage;
     private int threshold;
     private int amount;
+    /** 可选 prizeCode 如果为空 使用默认 */
+    private String prizeCode;
 
     public int getStage() {
       return stage;
@@ -142,6 +158,14 @@ public class RuleCenterConfig {
 
     public void setAmount(int amount) {
       this.amount = amount;
+    }
+
+    public String getPrizeCode() {
+      return prizeCode;
+    }
+
+    public void setPrizeCode(String prizeCode) {
+      this.prizeCode = prizeCode;
     }
   }
 }

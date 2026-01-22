@@ -15,7 +15,9 @@ public class RewardHandlerFactory {
   private final Map<String, RewardHandler> handlerMap = new HashMap<>();
 
   public RewardHandlerFactory(List<RewardHandler> handlers) {
-    if (handlers == null) return;
+    if (handlers == null) {
+      return;
+    }
 
     for (RewardHandler h : handlers) {
       if (h == null) {
@@ -27,15 +29,17 @@ public class RewardHandlerFactory {
         throw new IllegalStateException("RewardHandler prizeCode is blank: " + h.getClass().getName());
       }
       code = code.trim().toUpperCase();
-      
+
       RewardHandler existing = handlerMap.putIfAbsent(code, h);
       if (existing != null) {
         // 发现重复 prizeCode ：启动直接失败，避免运行时路由到错误实现
         throw new IllegalStateException(
-            "Duplicate RewardHandler for prizeCode=" + code +
-                ", existed = " + existing.getClass().getName()
-                + ", new = " + h.getClass().getName()
-        );
+            "Duplicate RewardHandler for prizeCode="
+                + code
+                + ", existed = "
+                + existing.getClass().getName()
+                + ", new = "
+                + h.getClass().getName());
       }
     }
   }
