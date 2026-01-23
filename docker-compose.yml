@@ -97,6 +97,8 @@ services:
       - "9090:9090"
     volumes:
       - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/alert_rules.yml:/etc/prometheus/alert_rules.yml
+
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -107,6 +109,13 @@ services:
     container_name: rewardflow-grafana
     ports:
       - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./deploy/observability/grafana/dashboards:/var/lib/grafana/dashboards
+
     depends_on:
       - prometheus
 

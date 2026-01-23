@@ -55,6 +55,7 @@
       AND status = 0
   </update>
 
+  <!-- 只允许从 pending(status=0) 且 retry_count==expected 的记录更新 -->
   <update id="updateRetry">
     UPDATE reward_outbox
     SET status = #{status},
@@ -62,16 +63,30 @@
         next_retry_time = #{nextRetryTime},
         update_time = NOW()
     WHERE event_id = #{eventId}
+      AND status = 0
+      AND retry_count = #{expectedRetryCount}
   </update>
 
+  <select id="listOutBizNoLike" resultType="java.lang.String">
+    SELECT out_biz_no
+    FROM reward_outbox
+    WHERE out_biz_no LIKE #{like}
+      AND event_type = 'AWARD_CREATED'
+    ORDER BY create_time ASC
+    LIMIT #{limit}
+  </select>
 
-<select id="listOutBizNoLike" resultType="java.lang.String">
-  SELECT out_biz_no
-  FROM reward_outbox
-  WHERE out_biz_no LIKE #{like}
-    AND event_type = 'AWARD_CREATED'
-  ORDER BY create_time ASC
-  LIMIT #{limit}
-</select>
+  <select id="countPending" resultType="long">
+    SELECT COUNT(1)
+    FROM reward_outbox
+    WHERE status = 0
+      AND (next_retry_time IS NULL OR next_retry_time &lt;= #{now})
+  </select>
+
+  <select id="countFailed" resultType="long">
+    SELECT COUNT(1)
+    FROM reward_outbox
+    WHERE status = 2
+  </select>
 
 </mapper>

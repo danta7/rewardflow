@@ -1,0 +1,57 @@
+groups:
+  - name: rewardflow-alerts
+    rules:
+      - alert: RewardFlowHighErrorRate
+        expr: |
+          (sum(rate(rewardflow_play_report_total{result=~"biz_error|error"}[5m]))
+          / clamp_min(sum(rate(rewardflow_play_report_total[5m])), 1)) > 0.02
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RewardFlow error rate > 2% (biz_error|error)"
+
+      - alert: RewardFlowOutboxBacklog
+        expr: rewardflow_outbox_pending > 1000
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RewardFlow outbox backlog > 1000"
+
+      - alert: RewardFlowOutboxHasFailedEvents
+        expr: rewardflow_outbox_failed > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RewardFlow outbox has FAILED events"
+
+      - alert: RewardFlowOutboxPublishFailRateHigh
+        expr: |
+          (sum(rate(rewardflow_outbox_publish_total{result="FAIL"}[5m]))
+          / clamp_min(sum(rate(rewardflow_outbox_publish_total[5m])), 1)) > 0.02
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RewardFlow outbox publish fail rate > 2%"
+
+      - alert: RewardFlowOutboxPendingIncreasing
+        expr: |
+          (predict_linear(rewardflow_outbox_pending[10m], 10 * 60) > (rewardflow_outbox_pending + 200))
+          and rewardflow_outbox_pending > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RewardFlow outbox backlog keeps increasing"
+
+      - alert: RewardFlowHttpP95High
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{uri=~"/api/v1/play/report"}[5m])) by (le)) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RewardFlow p95 latency > 500ms"

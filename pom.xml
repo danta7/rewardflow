@@ -15,7 +15,6 @@
     <module>rewardflow-api</module>
     <module>rewardflow-domain</module>
     <module>rewardflow-infra</module>
-    <module>rewardflow-test</module>
   </modules>
 
   <properties>

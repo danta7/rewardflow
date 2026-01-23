@@ -6,6 +6,7 @@ import com.rewardflow.app.award.handler.RewardHandlerFactory;
 import com.rewardflow.app.award.model.IssueResult;
 import com.rewardflow.app.award.model.RewardIssueContext;
 import com.rewardflow.app.config.AwardProperties;
+import com.rewardflow.app.metrics.RewardFlowMetrics;
 import com.rewardflow.infra.mongo.entity.AwardAuditLog;
 import com.rewardflow.infra.mongo.repo.AwardAuditLogRepository;
 import java.time.LocalDate;
@@ -18,15 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-/**
- * 将“可发奖计划(awardPlans)”落地为：
- * 1) reward_flow（幂等：outBizNo 唯一）
- * 2) outbox 事件（幂等：(outBizNo,eventType) 唯一）
- * 3) Mongo audit 日志（best-effort）
- *
- * <p>多奖品扩展点：每个 plan 自带 prizeCode（为空则使用默认奖品），
- * 通过 RewardHandlerFactory 路由到对应的 Handler。
- */
 @Service
 public class AwardIssueService {
 
@@ -35,20 +27,18 @@ public class AwardIssueService {
   private final AwardProperties awardProps;
   private final RewardHandlerFactory handlerFactory;
   private final AwardAuditLogRepository auditRepo;
+  private final RewardFlowMetrics metrics;
 
   public AwardIssueService(AwardProperties awardProps,
                            RewardHandlerFactory handlerFactory,
-                           AwardAuditLogRepository auditRepo) {
+                           AwardAuditLogRepository auditRepo,
+                           RewardFlowMetrics metrics) {
     this.awardProps = awardProps;
     this.handlerFactory = handlerFactory;
     this.auditRepo = auditRepo;
+    this.metrics = metrics;
   }
 
-  /**
-   * 对一批 awardPlans 逐个 stage 进行“发奖落地”。
-   *
-   * @return key=outBizNo，value=发奖结果（用于回填到接口返回的 awardPlans 中）
-   */
   public Map<String, IssueResult> issue(String userId,
                                         String scene,
                                         LocalDate bizDate,
@@ -57,12 +47,12 @@ public class AwardIssueService {
                                         boolean grayHit,
                                         List<PlayReportResponse.RewardPlanItem> plans,
                                         String traceId) {
-    Map<String, IssueResult> resultMap = new HashMap<>();
+    Map<String, IssueResult> resultMap = new HashMap<>(plans == null ? 16 : (plans.size() * 2));
     if (plans == null || plans.isEmpty()) {
       return resultMap;
     }
 
-    // build base ctx
+    // base ctx
     RewardIssueContext baseCtx = new RewardIssueContext();
     baseCtx.setUserId(userId);
     baseCtx.setScene(scene);
@@ -72,7 +62,7 @@ public class AwardIssueService {
     baseCtx.setTotalDuration(totalDuration);
     baseCtx.setTraceId(traceId);
 
-    // build audit log (best-effort)
+    // audit log (best-effort)
     AwardAuditLog audit = new AwardAuditLog();
     audit.setUserId(userId);
     audit.setScene(scene);
@@ -82,26 +72,20 @@ public class AwardIssueService {
     audit.setRuleVersion(ruleVersion);
     audit.setGrayHit(grayHit);
     audit.setCreatedAt(LocalDateTime.now());
-    List<AwardAuditLog.AuditStage> auditStages = new ArrayList<>();
+
+    List<AwardAuditLog.AuditStage> auditStages = new ArrayList<>(plans.size());
 
     for (PlayReportResponse.RewardPlanItem plan : plans) {
+      if (plan == null) continue;
+
       String prizeCode = normalizePrizeCode(plan.getPrizeCode());
       // 路由 handler
       RewardHandler handler = handlerFactory.get(prizeCode);
 
-      RewardIssueContext ctx = new RewardIssueContext();
-      ctx.setUserId(baseCtx.getUserId());
-      ctx.setScene(baseCtx.getScene());
-      ctx.setBizDate(baseCtx.getBizDate());
-      ctx.setRuleVersion(baseCtx.getRuleVersion());
-      ctx.setGrayHit(baseCtx.getGrayHit());
-      ctx.setTotalDuration(baseCtx.getTotalDuration());
-      ctx.setTraceId(baseCtx.getTraceId());
-      ctx.setPrizeCode(prizeCode);
+      RewardIssueContext ctx = copyCtx(baseCtx, prizeCode);
 
       IssueResult r;
       try {
-        // 调用 handler 发奖
         r = handler.issue(ctx, plan);
       } catch (Exception ex) {
         r = new IssueResult();
@@ -111,11 +95,18 @@ public class AwardIssueService {
         r.setIssued(false);
         r.setIssueStatus("FAILED");
         r.setError(ex.getClass().getSimpleName());
-        log.warn("award handler crashed: prizeCode={}, outBizNo={}, ex={}", prizeCode, plan.getOutBizNo(), ex.toString());
+        log.warn("award handler crashed: prizeCode={}, outBizNo={}, ex={}",
+            prizeCode, plan.getOutBizNo(), ex.toString());
       }
 
-      // 写回 resultMap 和 auditStage
       resultMap.put(plan.getOutBizNo(), r);
+
+      // metrics
+      try {
+        metrics.incAwardIssueAttempt(scene, prizeCode, plan.getStage(), r.getIssueStatus(), r.getIssued());
+      } catch (Exception ignore) {
+        // best-effort
+      }
 
       AwardAuditLog.AuditStage as = new AwardAuditLog.AuditStage();
       as.setStage(plan.getStage());
@@ -133,6 +124,19 @@ public class AwardIssueService {
       // best-effort
     }
     return resultMap;
+  }
+
+  private RewardIssueContext copyCtx(RewardIssueContext base, String prizeCode) {
+    RewardIssueContext ctx = new RewardIssueContext();
+    ctx.setUserId(base.getUserId());
+    ctx.setScene(base.getScene());
+    ctx.setBizDate(base.getBizDate());
+    ctx.setRuleVersion(base.getRuleVersion());
+    ctx.setGrayHit(base.getGrayHit());
+    ctx.setTotalDuration(base.getTotalDuration());
+    ctx.setTraceId(base.getTraceId());
+    ctx.setPrizeCode(prizeCode);
+    return ctx;
   }
 
   private String normalizePrizeCode(String planPrizeCode) {

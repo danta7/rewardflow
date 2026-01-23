@@ -19,11 +19,18 @@ management:
     health:
       show-details: always
   metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.95,0.99
+
     tags:
       application: ${spring.application.name}
+      env: ${spring.profiles.active:default}
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${REWARDFLOW_TRACING_SAMPLING:1.0}
   otlp:
     tracing:
       # Jaeger all-in-one exposes OTLP/HTTP at http://localhost:4318/v1/traces
