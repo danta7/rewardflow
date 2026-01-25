@@ -2,6 +2,7 @@ package com.rewardflow.app.controller;
 
 import com.rewardflow.api.dto.ApiResponse;
 import com.rewardflow.app.service.FeatureCenterService;
+import com.rewardflow.app.service.SceneNormalizer;
 import com.rewardflow.domain.feature.model.FeatureCenterConfig;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +28,7 @@ public class FeatureController {
 
   @GetMapping("/effective")
   public ApiResponse<Map<String, Object>> effective(@RequestParam("scene") String scene) {
+    scene = SceneNormalizer.normalize(scene);
     FeatureCenterConfig.SceneFeature eff = featureCenterService.effectiveForScene(scene);
     return ApiResponse.ok(Map.of(
         "scene", scene,

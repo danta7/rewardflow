@@ -51,4 +51,15 @@
     WHERE id = #{id}
   </update>
 
+  <insert id="upsertAddDelta">
+    INSERT INTO user_play_daily
+      (user_id, biz_scene, biz_date, total_duration, last_sync_time, version)
+    VALUES
+      (#{userId}, #{bizScene}, #{bizDate}, #{deltaDuration}, #{maxSyncTime}, 0)
+    ON DUPLICATE KEY UPDATE
+      total_duration = IF(last_sync_time &lt; VALUES(last_sync_time), total_duration + VALUES(total_duration), total_duration),
+      last_sync_time = GREATEST(last_sync_time, VALUES(last_sync_time)),
+      version = IF(last_sync_time &lt; VALUES(last_sync_time), version + 1, version)
+  </insert>
+
 </mapper>

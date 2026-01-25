@@ -22,6 +22,8 @@ public class RewardFlowProperties {
 
   // 只能配置内容不能更改
   private final Risk risk = new Risk();
+  // 使用 Redis 做播放时长聚合的降频写
+  private final PlayDailyAgg playDailyAgg = new PlayDailyAgg();
 
   public String getTimezone() {
     return timezone;
@@ -33,6 +35,10 @@ public class RewardFlowProperties {
 
   public Risk getRisk() {
     return risk;
+  }
+
+  public PlayDailyAgg getPlayDailyAgg() {
+    return playDailyAgg;
   }
 
   public static class Risk {
@@ -112,6 +118,91 @@ public class RewardFlowProperties {
 
     public void setMaxDurationPerMinute(int maxDurationPerMinute) {
       this.maxDurationPerMinute = maxDurationPerMinute;
+    }
+  }
+
+  public static class PlayDailyAgg {
+    /** 使用 Redis 做播放时长聚合的降频写 */
+    private boolean redisEnabled = true;
+
+    /** flush 间隔 */
+    @Min(1000)
+    private long flushIntervalMs = 5000L;
+
+    /** inflight 超时（防止刷写失败导致卡住） */
+    @Min(1000)
+    private long inflightTimeoutMs = 15000L;
+
+    /** flush 每批处理的 key 数量 */
+    @Min(1)
+    private int flushBatchSize = 500;
+
+    /** Redis key TTL（秒） */
+    @Min(60)
+    private long redisTtlSeconds = 172800L;
+
+    /** 高频阈值：每分钟上报次数达到该值后判定为高频 */
+    @Min(1)
+    private int highFreqThresholdPerMinute = 10;
+
+    /** 命中高频后保持 Redis 路由的时间窗口（秒） */
+    @Min(30)
+    private int hotWindowSeconds = 120;
+
+    public boolean isRedisEnabled() {
+      return redisEnabled;
+    }
+
+    public void setRedisEnabled(boolean redisEnabled) {
+      this.redisEnabled = redisEnabled;
+    }
+
+    public long getFlushIntervalMs() {
+      return flushIntervalMs;
+    }
+
+    public void setFlushIntervalMs(long flushIntervalMs) {
+      this.flushIntervalMs = flushIntervalMs;
+    }
+
+    public long getInflightTimeoutMs() {
+      return inflightTimeoutMs;
+    }
+
+    public void setInflightTimeoutMs(long inflightTimeoutMs) {
+      this.inflightTimeoutMs = inflightTimeoutMs;
+    }
+
+    public int getFlushBatchSize() {
+      return flushBatchSize;
+    }
+
+    public void setFlushBatchSize(int flushBatchSize) {
+      this.flushBatchSize = flushBatchSize;
+    }
+
+    public long getRedisTtlSeconds() {
+      return redisTtlSeconds;
+    }
+
+    public void setRedisTtlSeconds(long redisTtlSeconds) {
+      this.redisTtlSeconds = redisTtlSeconds;
+    }
+
+    public int getHighFreqThresholdPerMinute() {
+      return highFreqThresholdPerMinute;
+    }
+
+    public void setHighFreqThresholdPerMinute(int highFreqThresholdPerMinute) {
+      this.highFreqThresholdPerMinute = highFreqThresholdPerMinute;
+    }
+
+    public int getHotWindowSeconds() {
+      return hotWindowSeconds;
+    }
+
+    public void setHotWindowSeconds(int hotWindowSeconds) {
+      this.hotWindowSeconds = hotWindowSeconds;
     }
   }
 }

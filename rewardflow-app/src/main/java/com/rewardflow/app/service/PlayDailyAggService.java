@@ -5,11 +5,15 @@ import com.rewardflow.infra.mysql.entity.UserPlayDailyDO;
 import com.rewardflow.infra.mysql.mapper.PlayDurationReportMapper;
 import com.rewardflow.infra.mysql.mapper.UserPlayDailyMapper;
 import java.time.LocalDate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PlayDailyAggService {
+
+  private static final Logger log = LoggerFactory.getLogger(PlayDailyAggService.class);
 
   private final UserPlayDailyMapper dailyMapper;
   private final PlayDurationReportMapper reportMapper;
@@ -73,6 +77,8 @@ public class PlayDailyAggService {
     out.deltaDuration = delta;
     out.totalDuration = newTotal;
     out.lastSyncTime = maxSync;
+    log.debug("play daily agg mysql: userId={}, scene={}, bizDate={}, dailyId={}, delta={}, total={}, lastSync={}",
+        userId, scene, bizDate, daily.getId(), delta, newTotal, maxSync);
     return out;
   }
 

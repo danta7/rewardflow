@@ -2,6 +2,7 @@ package com.rewardflow.app.metrics;
 
 import com.rewardflow.api.dto.PlayReportResponse;
 import com.rewardflow.app.exception.BizException;
+import com.rewardflow.app.service.SceneNormalizer;
 import io.micrometer.core.instrument.Timer;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -33,6 +34,7 @@ public class PlayReportMetricsAspect {
         // 使用反射以避免直接依赖 PlayReportRequest 类
         try {
           scene = String.valueOf(args[0].getClass().getMethod("getScene").invoke(args[0]));
+          scene = SceneNormalizer.normalize(scene);
         } catch (Exception ignore) {
           // keep unknown
         }

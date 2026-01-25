@@ -26,4 +26,11 @@ public interface UserPlayDailyMapper {
                    @Param("totalDuration") int totalDuration,
                    @Param("lastSyncTime") long lastSyncTime,
                    @Param("version") int version);
+
+  // 增量写入（使用 maxSyncTime 做幂等边界）
+  int upsertAddDelta(@Param("userId") String userId,
+                     @Param("bizScene") String bizScene,
+                     @Param("bizDate") LocalDate bizDate,
+                     @Param("deltaDuration") int deltaDuration,
+                     @Param("maxSyncTime") long maxSyncTime);
 }

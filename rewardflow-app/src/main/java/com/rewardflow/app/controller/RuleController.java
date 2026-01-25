@@ -3,6 +3,7 @@ package com.rewardflow.app.controller;
 import com.rewardflow.api.dto.ApiResponse;
 import com.rewardflow.app.service.RuleCenterService;
 import com.rewardflow.app.service.RuleSelectionService;
+import com.rewardflow.app.service.SceneNormalizer;
 import com.rewardflow.domain.rule.model.RuleCenterConfig;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +31,7 @@ public class RuleController {
 
   @GetMapping("/select")
   public ApiResponse<Map<String, Object>> select(@RequestParam("scene") String scene, @RequestParam("userId") String userId) {
+    scene = SceneNormalizer.normalize(scene);
     RuleSelectionService.RuleSelectResult r = ruleSelectionService.select(scene, userId);
     return ApiResponse.ok(Map.of(
         "scene", r.getScene(),

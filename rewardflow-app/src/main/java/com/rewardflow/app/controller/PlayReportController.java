@@ -5,6 +5,7 @@ import com.rewardflow.api.dto.PlayReportRequest;
 import com.rewardflow.api.dto.PlayReportResponse;
 import com.rewardflow.api.dto.UserPlayDailyResponse;
 import com.rewardflow.app.config.RewardFlowProperties;
+import com.rewardflow.app.service.SceneNormalizer;
 import com.rewardflow.app.service.PlayReportAppService;
 import com.rewardflow.infra.mysql.entity.UserPlayDailyDO;
 import com.rewardflow.infra.mysql.mapper.UserPlayDailyMapper;
@@ -52,6 +53,7 @@ public class PlayReportController {
   public ApiResponse<UserPlayDailyResponse> daily(@RequestParam("userId") String userId,
                                                   @RequestParam("scene") String scene,
                                                   @RequestParam(value = "bizDate", required = false) String bizDate) {
+    scene = SceneNormalizer.normalize(scene);
     // 解析日期参数，空值就用当前日期                                                
     LocalDate date;
     if (bizDate == null || bizDate.isBlank()) {

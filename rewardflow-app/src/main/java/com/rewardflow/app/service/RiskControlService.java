@@ -4,6 +4,8 @@ import com.rewardflow.app.config.RewardFlowProperties;
 import com.rewardflow.app.exception.BizException;
 import java.util.Map;
 import java.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class RiskControlService {
+
+  private static final Logger log = LoggerFactory.getLogger(RiskControlService.class);
 
   private static final String CNT_PREFIX = "rf:risk:cnt:";
   private static final String DUR_PREFIX = "rf:risk:dur:";
@@ -54,6 +58,8 @@ public class RiskControlService {
           null,
           "RATE_LIMIT",
           Map.of("kind", "count", "count", cnt, "limit", risk.getMaxReportsPerMinute()));
+      log.warn("risk limit exceeded: userId={}, scene={}, kind=count, minute={}, count={}, limit={}",
+          userId, scene, minute, cnt, risk.getMaxReportsPerMinute());
       throw new BizException(4291, "too many reports per minute");
     }
 
@@ -68,6 +74,8 @@ public class RiskControlService {
           null,
           "RATE_LIMIT",
           Map.of("kind", "duration", "sum", sum, "limit", risk.getMaxDurationPerMinute()));
+      log.warn("risk limit exceeded: userId={}, scene={}, kind=duration, minute={}, sum={}, limit={}",
+          userId, scene, minute, sum, risk.getMaxDurationPerMinute());
       throw new BizException(4292, "too much duration per minute");
     }
   }

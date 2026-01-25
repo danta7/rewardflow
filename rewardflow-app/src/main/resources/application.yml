@@ -92,6 +92,14 @@ rewardflow:
     redis-dedup-ttl-seconds: 172800
     max-reports-per-minute: 120
     max-duration-per-minute: 300
+  play-daily-agg:
+    redis-enabled: true
+    flush-interval-ms: 5000
+    inflight-timeout-ms: 15000
+    flush-batch-size: 500
+    redis-ttl-seconds: 172800
+    high-freq-threshold-per-minute: 10
+    hot-window-seconds: 120
   rule-center:
     enabled: true
     server-addr: ${NACOS_ADDR:localhost:8848}

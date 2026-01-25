@@ -4,6 +4,8 @@ import com.rewardflow.api.dto.ApiResponse;
 import com.rewardflow.app.exception.BizException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class RestExceptionHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
 
   // 业务异常
   @ExceptionHandler(BizException.class)
@@ -51,6 +55,7 @@ public class RestExceptionHandler {
   @ExceptionHandler(Exception.class)
   @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
   public ApiResponse<Void> handleOther(Exception ex) {
+    log.error("unexpected error", ex);
     return ApiResponse.error(5000, "internal error: " + ex.getClass().getSimpleName());
   }
 }
