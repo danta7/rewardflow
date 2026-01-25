@@ -70,6 +70,8 @@ services:
       SPRING_DATASOURCE_USERNAME: rewardflow
       SPRING_DATASOURCE_PASSWORD: rewardflow123
       SPRING_RABBITMQ_HOST: rabbitmq
+      OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+      REWARDFLOW_TRACING_SAMPLING: 1.0
     depends_on:
       mysql:
         condition: service_healthy

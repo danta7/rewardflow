@@ -10,3 +10,9 @@ scrape_configs:
     static_configs:
       - targets:
           - 'host.docker.internal:8080'
+
+  - job_name: 'rewardflow-consumer'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - 'host.docker.internal:8090'

@@ -55,3 +55,29 @@ groups:
           severity: warning
         annotations:
           summary: "RewardFlow p95 latency > 500ms"
+
+      - alert: RewardFlowConsumerLagHigh
+        expr: rewardflow_consumer_queue_depth{queue="main"} > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer queue depth > 100"
+
+      - alert: RewardFlowConsumerDeadLetter
+        expr: rewardflow_consumer_queue_depth{queue="dead"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Consumer dead-letter queue has messages"
+
+      - alert: RewardFlowConsumerDeadRateHigh
+        expr: |
+          (sum(rate(rewardflow_consumer_consume_total{result="DEAD"}[5m]))
+          / clamp_min(sum(rate(rewardflow_consumer_consume_total[5m])), 1)) > 0.02
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer DEAD rate > 2%"
