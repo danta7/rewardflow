@@ -57,6 +57,25 @@ services:
       timeout: 5s
       retries: 10
 
+  consumer:
+    build:
+      context: ../rewardflow-consumer
+      dockerfile: Dockerfile
+    container_name: rewardflow-consumer
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/rewardflow?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: rewardflow
+      SPRING_DATASOURCE_PASSWORD: rewardflow123
+      SPRING_RABBITMQ_HOST: rabbitmq
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   nacos:
     image: nacos/nacos-server:v2.3.2
     container_name: rewardflow-nacos
